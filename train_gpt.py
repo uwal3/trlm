@@ -5,6 +5,7 @@ from contextlib import nullcontext
 
 import torch
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 import wandb
 
 from dataset import TextDataset
@@ -123,7 +124,8 @@ def estimate_loss():
                 break
             X, Y = X.to(device), Y.to(device)
             with ctx:
-                logits, loss = model(X, Y)
+                logits = model(X)
+                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()
@@ -207,7 +209,8 @@ while True:
     X, Y = X.to(device), Y.to(device)
 
     with ctx:
-        logits, loss = model(X, Y)
+        logits = model(X)
+        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
 
     loss.backward()
 
