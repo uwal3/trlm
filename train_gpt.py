@@ -50,7 +50,7 @@ dtype = (
     if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
     else "float16"
 )
-compile = True
+compile = False
 num_workers = 4
 
 torch.manual_seed(52)
