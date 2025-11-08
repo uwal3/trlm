@@ -40,7 +40,7 @@ for split_name, ds_split in splits.items():
         remove_columns=["text"],
     )
 
-    output_path = os.path.join(output_dir, f"{split_name}.bin")
+    output_path = output_dir + f"/{split_name}.bin"
 
     all_tokens = np.concatenate(tokenized_ds["tokens"])
 
