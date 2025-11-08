@@ -52,4 +52,4 @@ for split_name, ds_split in splits.items():
     print(f"total tokens in '{split_name}': {total_tokens}")
     print(f"saved to {output_path}")
 
-print("Подготовка данных завершена.")
+print("done.")

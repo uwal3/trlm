@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import Config
+from model.config import Config
 
 
 class GPT(nn.Module):
