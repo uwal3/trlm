@@ -22,7 +22,7 @@ wandb_log = True
 wandb_project = "trlm"
 wandb_run_name = "gpt-" + str(time.time())
 
-dataset_dir = "data/wikitext-103"
+dataset_dir = "data/wikitext"
 batch_size = 32
 block_size = 1024
 
