@@ -40,6 +40,8 @@ for split_name, ds_split in splits.items():
         remove_columns=["text"],
     )
 
+    print(f"{len(tokenized_ds)} rows tokenized")
+
     output_path = output_dir + f"/{split_name}.bin"
 
     all_tokens = np.concatenate(tokenized_ds["tokens"])
