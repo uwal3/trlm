@@ -41,6 +41,7 @@ for split_name, ds_split in splits.items():
     )
 
     print(f"{len(tokenized_ds)} rows tokenized")
+    print(type(tokenized_ds))
 
     output_path = output_dir + f"/{split_name}.bin"
 
