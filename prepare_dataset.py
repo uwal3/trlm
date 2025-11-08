@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import tiktoken
 from datasets import load_dataset
 from transformers import AutoTokenizer
 
@@ -23,33 +22,34 @@ splits = {
 enc = AutoTokenizer.from_pretrained("gpt2")
 
 
-def tokenize_and_concatenate(examples):
-    full_text = enc.eos_token.join(examples["text"])
-
-    tokens = enc.encode(full_text)
-
-    return {"tokens": tokens}
+def tokenize_function(examples):
+    return enc(examples["text"], add_special_tokens=False)
 
 
 for split_name, ds_split in splits.items():
     print(f"processing '{split_name}' split...")
 
+    ds_split = ds_split.filter(
+        lambda x: x["text"] and not x["text"].isspace(), num_proc=8
+    )
+
     tokenized_ds = ds_split.map(
-        tokenize_and_concatenate,
+        tokenize_function,
         batched=True,
+        num_proc=8,
         remove_columns=["text"],
     )
 
-    print(f"{len(tokenized_ds)} rows tokenized")
-    print(type(tokenized_ds))
+    output_path = os.path.join(output_dir, f"{split_name}.bin")
+    total_tokens = 0
 
-    output_path = output_dir + f"/{split_name}.bin"
+    with open(output_path, "wb") as f:
+        for item in tokenized_ds:
+            tokens = item["input_ids"] + [enc.eos_token_id]
+            f.write(np.array(tokens, dtype=np.uint16).tobytes())
+            total_tokens += len(tokens)
 
-    all_tokens = np.concatenate(tokenized_ds["tokens"])
+    print(f"total tokens in '{split_name}': {total_tokens}")
+    print(f"saved to {output_path}")
 
-    print(f"total tokens in '{split_name}': {len(all_tokens)}")
-    print(f"saving to {output_path}..")
-
-    all_tokens.astype(np.uint16).tofile(output_path)
-
-print("data preparation complete.")
+print("Подготовка данных завершена.")
