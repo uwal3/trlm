@@ -26,7 +26,7 @@ dataset_dir = "data/wikitext"
 batch_size = 32
 block_size = 1024
 
-n_layer = 6
+n_layer = 4
 n_head = 6
 n_embd = 576
 dropout = 0.0
