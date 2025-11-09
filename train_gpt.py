@@ -166,6 +166,7 @@ t0 = time.time()
 
 train_iter = iter(train_loader)
 X, Y = next(train_iter)
+X, Y = X.to(device), Y.to(device)
 
 while True:
     if decay_lr:
