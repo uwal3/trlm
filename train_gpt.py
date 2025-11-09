@@ -203,18 +203,18 @@ while True:
                 torch.save(checkpoint, os.path.join(out_dir, "ckpt.pt"))
 
     for micro_step in range(gradient_accumulation_steps):
-    with ctx:
-        logits, loss = model(X, Y)
-        loss = loss / gradient_accumulation_steps
-    
-    try:
-        X, Y = next(train_iter)
-    except StopIteration:
-        train_iter = iter(train_loader)
-        X, Y = next(train_iter)
-    X, Y = X.to(device), Y.to(device)
-    
-    loss.backward()
+        with ctx:
+            logits, loss = model(X, Y)
+            loss = loss / gradient_accumulation_steps
+
+        try:
+            X, Y = next(train_iter)
+        except StopIteration:
+            train_iter = iter(train_loader)
+            X, Y = next(train_iter)
+        X, Y = X.to(device), Y.to(device)
+
+        loss.backward()
 
     if grad_clip != 0.0:
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
