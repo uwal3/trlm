@@ -24,8 +24,9 @@ wandb_project = "trlm"
 wandb_run_name = "gpt-" + str(time.time())
 
 dataset_dir = "data/wikitext"
-batch_size = 32
+batch_size = 16
 block_size = 1024
+gradient_accumulation_steps = 4
 
 n_layer = 6
 n_head = 6
@@ -164,6 +165,7 @@ best_val_loss = 1e9
 t0 = time.time()
 
 train_iter = iter(train_loader)
+X, Y = next(train_iter)
 
 while True:
     if decay_lr:
@@ -200,18 +202,18 @@ while True:
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, "ckpt.pt"))
 
+    for micro_step in range(gradient_accumulation_steps):
+    with ctx:
+        logits, loss = model(X, Y)
+        loss = loss / gradient_accumulation_steps
+    
     try:
         X, Y = next(train_iter)
     except StopIteration:
         train_iter = iter(train_loader)
         X, Y = next(train_iter)
-
     X, Y = X.to(device), Y.to(device)
-
-    with ctx:
-        logits = model(X)
-        loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
-
+    
     loss.backward()
 
     if grad_clip != 0.0:
