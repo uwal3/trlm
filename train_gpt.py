@@ -205,7 +205,7 @@ while True:
 
     for micro_step in range(gradient_accumulation_steps):
         with ctx:
-            ogits = model(X)
+            logits = model(X)
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
             loss = loss / gradient_accumulation_steps
 
