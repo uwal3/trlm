@@ -201,7 +201,7 @@ while True:
                     "best_val_loss": best_val_loss,
                 }
                 print(f"saving checkpoint to {out_dir}")
-                torch.save(checkpoint, os.path.join(out_dir, "ckpt.pt"))
+                torch.save(checkpoint, os.path.join(out_dir, f"ckpt-{iter_num}.pt"))
 
     for micro_step in range(gradient_accumulation_steps):
         with ctx:
