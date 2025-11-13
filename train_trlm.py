@@ -154,7 +154,7 @@ def validate():
 
     init_batch = next(val_iter)
     init_batch = {k: v.to(device) for k, v in init_batch.items()}
-    val_carry = model.initial_carry(init_batch)
+    val_carry = model.initial_carry(init_batch, device)
     refill_buffer(val_buffer, val_iter, batch_size)
     new_val_samples = init_batch
 
@@ -229,7 +229,7 @@ train_iter = iter(train_loader)
 batch = next(train_iter)
 batch = {k: v.to(device) for k, v in batch.items()}
 refill_buffer(train_buffer, train_iter, batch_size)
-carry: TRLMCarry = model.initial_carry(batch)
+carry: TRLMCarry = model.initial_carry(batch, device)
 new_samples = batch
 
 while True:

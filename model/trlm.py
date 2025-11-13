@@ -59,12 +59,12 @@ class TRLM(nn.Module):
         self.max_seq_length = self.config.block_size
 
         self.H_init = nn.Buffer(
-            torch.empty(self.config.n_embd, dtype=torch.bfloat16),
+            torch.empty(self.config.n_embd, dtype=torch.float32),
             persistent=True,
         )
         nn.init.trunc_normal_(self.H_init)
         self.L_init = nn.Buffer(
-            torch.empty(self.config.n_embd, dtype=torch.bfloat16),
+            torch.empty(self.config.n_embd, dtype=torch.float32),
             persistent=True,
         )
         nn.init.trunc_normal_(self.L_init)
@@ -123,13 +123,13 @@ class TRLM(nn.Module):
                 batch_size,
                 self.config.block_size,
                 self.config.n_embd,
-                dtype=torch.bfloat16,
+                dtype=torch.float32,
             ),
             z_L=torch.empty(
                 batch_size,
                 self.config.block_size,
                 self.config.n_embd,
-                dtype=torch.bfloat16,
+                dtype=torch.float32,
             ),
         )
 
@@ -143,7 +143,7 @@ class TRLM(nn.Module):
             z_L=torch.where(reset_flag.view(-1, 1, 1), self.L_init, carry.z_L),
         )
 
-    def initial_carry(self, batch: Dict[str, torch.Tensor]):
+    def initial_carry(self, batch: Dict[str, torch.Tensor], device):
         batch_size = batch["input_ids"].shape[0]
 
         embeds = self.transformer.wte(batch["input_ids"])  # type: ignore
@@ -151,9 +151,9 @@ class TRLM(nn.Module):
             embeds = embeds * torch.tensor(self.config.n_embd**0.5, dtype=embeds.dtype)
 
         current_data = {
-            "input_ids": batch["input_ids"].to(self.device),
-            "target": batch["target"].to(self.device),
-            "embed": embeds.to(self.device),
+            "input_ids": batch["input_ids"].to(device),
+            "target": batch["target"].to(device),
+            "embed": embeds.to(device),
         }
 
         return TRLMCarry(
