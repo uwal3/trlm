@@ -153,6 +153,7 @@ def validate():
     all_metrics = []
 
     init_batch = next(val_iter)
+    init_batch = {k: v.to(device) for k, v in init_batch.items()}
     val_carry = model.initial_carry(init_batch)
     refill_buffer(val_buffer, val_iter, batch_size)
     new_val_samples = init_batch
