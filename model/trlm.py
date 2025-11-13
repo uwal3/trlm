@@ -140,6 +140,7 @@ class TRLM(nn.Module):
         reset_flag: torch.Tensor,
         carry: TRLMInnerCarry,
     ):
+        print(reset_flag.view(-1, 1, 1).device, self.H_init.device, carry.z_H.device)
         return TRLMInnerCarry(
             z_H=torch.where(reset_flag.view(-1, 1, 1), self.H_init, carry.z_H),
             z_L=torch.where(reset_flag.view(-1, 1, 1), self.L_init, carry.z_L),
