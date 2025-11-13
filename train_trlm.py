@@ -161,7 +161,7 @@ def validate():
     total_halted = 0
     for _ in range(eval_iters):
         val_carry, _, metrics, _, all_halted = model(
-            val_carry, new_samples=new_val_samples
+            carry=val_carry, new_samples=new_val_samples
         )
         halted_indices = torch.where(val_carry.halted)[0]
         num_halted = len(halted_indices)
@@ -263,7 +263,7 @@ while True:
 
     for micro_step in range(gradient_accumulation_steps):
         with ctx:
-            carry, loss, metrics, _, _ = model(carry, new_samples=new_samples)
+            carry, loss, metrics, _, _ = model(carry=carry, new_samples=new_samples)
 
             loss = loss / gradient_accumulation_steps
             total_loss_acc += loss.detach()
