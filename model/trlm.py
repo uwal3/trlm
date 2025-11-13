@@ -59,12 +59,12 @@ class TRLM(nn.Module):
         self.max_seq_length = self.config.block_size
 
         self.H_init = nn.Buffer(
-            torch.empty(self.config.hidden_size, dtype=torch.bfloat16),
+            torch.empty(self.config.n_embd, dtype=torch.bfloat16),
             persistent=True,
         )
         nn.init.trunc_normal_(self.H_init)
         self.L_init = nn.Buffer(
-            torch.empty(self.config.hidden_size, dtype=torch.bfloat16),
+            torch.empty(self.config.n_embd, dtype=torch.bfloat16),
             persistent=True,
         )
         nn.init.trunc_normal_(self.L_init)
