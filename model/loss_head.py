@@ -49,14 +49,18 @@ class ACTLossHead(nn.Module):
                 "steps": torch.where(valid_metrics, new_carry.steps, 0).sum(),
             }
 
+        logits = outputs["logits"].to(torch.float32)
+        q_halt_logits = outputs["q_halt_logits"].to(torch.float32)
+        q_continue_logits = outputs["q_continue_logits"].to(torch.float32)
+
         # losses
         lm_loss = F.cross_entropy(
-            outputs["logits"].view(-1, outputs["logits"].size(-1)),
+            logits.view(-1, logits.size(-1)),
             target.view(-1),
         )
         q_halt_loss = F.binary_cross_entropy_with_logits(
-            outputs["q_halt_logits"],
-            seq_is_correct.to(outputs["q_halt_logits"].dtype),
+            q_halt_logits,
+            seq_is_correct.to(q_halt_logits.dtype),
             reduction="sum",
         )
         metrics.update(
@@ -70,7 +74,7 @@ class ACTLossHead(nn.Module):
         q_continue_loss = 0
         if "target_q_continue" in outputs:
             q_continue_loss = F.binary_cross_entropy_with_logits(
-                outputs["q_continue_logits"],
+                q_continue_logits,
                 outputs["target_q_continue"],
                 reduction="sum",
             )
