@@ -163,8 +163,10 @@ class TRLM(nn.Module):
             inner_carry=self.empty_carry(
                 batch_size, device
             ),  # Empty is expected, it will be reseted in first pass as all sequences are halted.
-            steps=torch.zeros((batch_size,), dtype=torch.int32),
-            halted=torch.ones((batch_size,), dtype=torch.bool),  # Default to halted
+            steps=torch.zeros((batch_size,), dtype=torch.int32, device=device),
+            halted=torch.ones(
+                (batch_size,), dtype=torch.bool, device=device
+            ),  # Default to halted
             current_data=current_data,
         )
 
