@@ -23,7 +23,7 @@ always_save_checkpoint = True
 
 wandb_log = True
 wandb_project = "trlm"
-wandb_run_name = "gpt-" + str(time.time())
+wandb_run_name = "trlm-" + str(time.time())
 
 dataset_dir = "data/wikitext"
 batch_size = 16
