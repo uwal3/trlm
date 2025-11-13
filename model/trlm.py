@@ -117,19 +117,21 @@ class TRLM(nn.Module):
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def empty_carry(self, batch_size: int):
+    def empty_carry(self, batch_size: int, device):
         return TRLMInnerCarry(
             z_H=torch.empty(
                 batch_size,
                 self.config.block_size,
                 self.config.n_embd,
                 dtype=torch.float32,
+                device=device,
             ),
             z_L=torch.empty(
                 batch_size,
                 self.config.block_size,
                 self.config.n_embd,
                 dtype=torch.float32,
+                device=device,
             ),
         )
 
@@ -158,7 +160,7 @@ class TRLM(nn.Module):
 
         return TRLMCarry(
             inner_carry=self.empty_carry(
-                batch_size
+                batch_size, device
             ),  # Empty is expected, it will be reseted in first pass as all sequences are halted.
             steps=torch.zeros((batch_size,), dtype=torch.int32),
             halted=torch.ones((batch_size,), dtype=torch.bool),  # Default to halted
