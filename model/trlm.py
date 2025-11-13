@@ -151,9 +151,9 @@ class TRLM(nn.Module):
             embeds = embeds * torch.tensor(self.config.n_embd**0.5, dtype=embeds.dtype)
 
         current_data = {
-            "input_ids": batch["input_ids"],
-            "target": batch["target"],
-            "embed": embeds,
+            "input_ids": batch["input_ids"].to(self.device),
+            "target": batch["target"].to(self.device),
+            "embed": embeds.to(self.device),
         }
 
         return TRLMCarry(
