@@ -28,7 +28,7 @@ wandb_run_name = "gpt-" + str(time.time())
 dataset_dir = "data/wikitext"
 batch_size = 16
 block_size = 1024
-gradient_accumulation_steps = 2
+gradient_accumulation_steps = 4
 
 n_layer = 2
 n_head = 6
