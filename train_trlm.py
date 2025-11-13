@@ -16,7 +16,7 @@ from model.loss_head import ACTLossHead
 
 
 out_dir = "out"
-eval_interval = 2000
+eval_interval = 1000
 log_interval = 10
 eval_iters = 200
 always_save_checkpoint = True
