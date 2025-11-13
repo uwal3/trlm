@@ -41,7 +41,7 @@ halt_max_steps: int = 1
 no_ACT_continue: bool = True
 
 learning_rate = 6e-4
-max_iters = 25000
+max_iters = 100000
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
