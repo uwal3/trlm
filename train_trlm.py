@@ -290,7 +290,7 @@ while True:
         else:
             new_samples = None
 
-        loss.backward(retain_graph=True)
+        loss.backward()
 
     if grad_clip != 0.0:
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
