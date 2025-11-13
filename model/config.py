@@ -153,3 +153,4 @@ class TRLMConfig(Config):
     L_cycles: int = 3
     halt_max_steps: int = 16
     no_ACT_continue: bool = False
+    halt_exploration_prob: float = 0.15
