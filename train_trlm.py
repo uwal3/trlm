@@ -40,7 +40,7 @@ L_cycles: int = 3
 halt_max_steps: int = 16
 no_ACT_continue: bool = False
 
-learning_rate = 6e-4
+learning_rate = 6e-6
 max_iters = 25000
 weight_decay = 1e-1
 beta1 = 0.9
