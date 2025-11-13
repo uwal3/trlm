@@ -22,3 +22,13 @@ class TextDataset(Dataset):
         y = full_sequence[1:]
 
         return x, y
+
+
+def collate_fn(batch):
+    xs = [item[0] for item in batch]
+    ys = [item[1] for item in batch]
+
+    input_ids = torch.stack(xs)
+    target = torch.stack(ys)
+
+    return {"input_ids": input_ids, "target": target}

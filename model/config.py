@@ -145,3 +145,11 @@ class Config:
             ), "Latent attention does not support MQA/GQA"
             self.qk_head_dim = self.qk_rope_head_dim + self.qk_nope_head_dim
             self.rope_n_elem = self.qk_rope_head_dim
+
+
+@dataclass
+class TRLMConfig(Config):
+    H_cycles: int = 4
+    L_cycles: int = 3
+    halt_max_steps: int = 16
+    no_ACT_continue: bool = False
