@@ -11,7 +11,7 @@ import wandb
 
 from dataset import TextDataset, collate_fn
 from model.config import TRLMConfig
-from model.trlm import TRLM, TRLMCarry
+from model.trlm import TRLM, TRLMCarry, TRLMInnerCarry
 from model.loss_head import ACTLossHead
 
 
@@ -289,6 +289,18 @@ while True:
             }
         else:
             new_samples = None
+
+        detached_inner_carry = TRLMInnerCarry(
+            z_H=carry.inner_carry.z_H.detach(), z_L=carry.inner_carry.z_L.detach()
+        )
+        detached_current_data = {k: v.detach() for k, v in carry.current_data.items()}
+
+        carry = TRLMCarry(
+            inner_carry=detached_inner_carry,
+            steps=carry.steps.detach(),
+            halted=carry.halted.detach(),  # .detach() для булевых тензоров ничего не делает, но для консистентности полезен
+            current_data=detached_current_data,
+        )
 
         loss.backward()
 
