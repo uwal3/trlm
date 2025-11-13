@@ -185,10 +185,10 @@ def validate():
         / (total_halted if k not in per_step_metrics else len(all_metrics))
         for k in all_metrics[0]
     }
-    final_metrics = {f"val_{k}": v for k, v in final_metrics.items()}
+    final_metrics = {f"validation/{k}": v for k, v in final_metrics.items()}
 
     model.train()
-    return final_metrics["val_lm_loss"], final_metrics
+    return final_metrics["validation/lm_loss"], final_metrics
 
 
 def get_lr(it):
@@ -298,7 +298,7 @@ while True:
         carry = TRLMCarry(
             inner_carry=detached_inner_carry,
             steps=carry.steps.detach(),
-            halted=carry.halted.detach(),  # .detach() для булевых тензоров ничего не делает, но для консистентности полезен
+            halted=carry.halted.detach(),
             current_data=detached_current_data,
         )
 
@@ -315,11 +315,17 @@ while True:
     t0 = time.time()
     if iter_num % log_interval == 0:
         metrics_log = {
-            k: v / gradient_accumulation_steps for k, v in metrics_acc.items()
+            f"train/{k}": v / gradient_accumulation_steps
+            for k, v in metrics_acc.items()
         }
         if wandb_log:
             wandb.log(
-                {"iter": iter_num, "loss": total_loss_acc, "lr": lr, **metrics_log}
+                {
+                    "iter": iter_num,
+                    "train/loss": total_loss_acc,
+                    "lr": lr,
+                    **metrics_log,
+                }
             )
 
         lossf = total_loss_acc.item()
