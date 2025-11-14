@@ -30,9 +30,9 @@ batch_size = 16
 block_size = 1024
 gradient_accumulation_steps = 4
 
-n_layer = 3
+n_layer = 2
 n_head = 6
-n_embd = 576
+n_embd = 1152
 dropout = 0.0
 bias = False
 H_cycles: int = 2
