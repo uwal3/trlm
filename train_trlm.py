@@ -35,12 +35,12 @@ n_head = 6
 n_embd = 576
 dropout = 0.0
 bias = False
-H_cycles: int = 2
-L_cycles: int = 3
+H_cycles: int = 3
+L_cycles: int = 2
 halt_max_steps: int = 1
 no_ACT_continue: bool = True
 
-learning_rate = 6e-3
+learning_rate = 6e-4
 max_iters = 40000
 weight_decay = 1e-1
 beta1 = 0.9
@@ -48,7 +48,7 @@ beta2 = 0.95
 grad_clip = 1.0
 
 decay_lr = True
-warmup_iters = 500
+warmup_iters = 2000
 lr_decay_iters = max_iters
 min_lr = 6e-5
 
