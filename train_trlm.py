@@ -32,7 +32,7 @@ gradient_accumulation_steps = 4
 
 n_layer = 2
 n_head = 6
-n_embd = 1152
+n_embd = 576
 dropout = 0.0
 bias = False
 H_cycles: int = 2
@@ -40,15 +40,15 @@ L_cycles: int = 3
 halt_max_steps: int = 1
 no_ACT_continue: bool = True
 
-learning_rate = 6e-4
-max_iters = 100000
+learning_rate = 6e-3
+max_iters = 40000
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0
 
 decay_lr = True
-warmup_iters = 2000
+warmup_iters = 500
 lr_decay_iters = max_iters
 min_lr = 6e-5
 
