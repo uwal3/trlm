@@ -185,8 +185,8 @@ while True:
             wandb.log(
                 {
                     "iter": iter_num,
-                    "train/loss": losses["train"],
-                    "val/loss": losses["val"],
+                    "train/lm_loss": losses["train"],
+                    "validation/lm_loss": losses["val"],
                     "lr": lr,
                 }
             )
