@@ -26,9 +26,9 @@ wandb_project = "trlm"
 wandb_run_name = "trlm-" + str(time.time())
 
 dataset_dir = "data/wikitext"
-batch_size = 8
+batch_size = 16
 block_size = 1024
-gradient_accumulation_steps = 8
+gradient_accumulation_steps = 4
 
 n_layer = 2
 n_head = 6
