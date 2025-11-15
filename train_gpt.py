@@ -196,7 +196,7 @@ while True:
                 }
                 print(f"saving checkpoint to {out_dir}")
                 torch.save(checkpoint, os.path.join(out_dir, f"ckpt-{iter_num}.pt"))
-
+    total_loss = 0
     for micro_step in range(gradient_accumulation_steps):
         with ctx:
             logits = model(X)
@@ -211,6 +211,7 @@ while True:
         X, Y = X.to(device), Y.to(device)
 
         loss.backward()
+        total_loss += loss.item()
 
     if grad_clip != 0.0:
         torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
@@ -223,16 +224,15 @@ while True:
     dt = t1 - t0
     t0 = t1
     if iter_num % log_interval == 0:
-        lossf = loss.item()
         wandb.log(
             {
                 "iter": iter_num,
-                "train/lm_loss": lossf,
-                "train/loss": lossf,
+                "train/lm_loss": total_loss,
+                "train/loss": total_loss,
                 "lr": lr,
             }
         )
-        print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms")
+        print(f"iter {iter_num}: loss {total_loss:.4f}, time {dt*1000:.2f}ms")
 
     iter_num += 1
 
