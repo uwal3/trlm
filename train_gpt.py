@@ -14,9 +14,9 @@ from model.gpt import GPT
 
 
 out_dir = "out"
-eval_interval = 500
+eval_interval = 1000
 log_interval = 10
-eval_iters = 100
+eval_iters = 200
 always_save_checkpoint = True
 
 wandb_log = True
@@ -117,20 +117,18 @@ if compile:
 def estimate_loss():
     out = {}
     model.eval()
-    for split in ["train", "val"]:
-        loader = train_loader if split == "train" else val_loader
-        losses = torch.zeros(eval_iters)
-        for k, (X, Y) in enumerate(loader):
-            if k >= eval_iters:
-                break
-            X, Y = X.to(device), Y.to(device)
-            with ctx:
-                logits = model(X)
-                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
-            losses[k] = loss.item()
-        out[split] = losses.mean()
+    losses = torch.zeros(eval_iters)
+    for k, (X, Y) in enumerate(val_loader):
+        if k >= eval_iters:
+            break
+        X, Y = X.to(device), Y.to(device)
+        with ctx:
+            logits = model(X)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
+        losses[k] = loss.item()
+    loss = losses.mean()
     model.train()
-    return out
+    return loss
 
 
 def get_lr(it):
@@ -177,21 +175,17 @@ while True:
         lr = learning_rate
 
     if iter_num % eval_interval == 0:
-        losses = estimate_loss()
-        print(
-            f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}"
-        )
+        val_loss = estimate_loss()
+        print(f"step {iter_num}: val loss {val_loss:.4f}")
         if wandb_log:
             wandb.log(
                 {
                     "iter": iter_num,
-                    "train/lm_loss": losses["train"],
-                    "validation/lm_loss": losses["val"],
-                    "lr": lr,
+                    "validation/lm_loss": val_loss,
                 }
             )
-        if losses["val"] < best_val_loss or always_save_checkpoint:
-            best_val_loss = losses["val"]
+        if val_loss < best_val_loss or always_save_checkpoint:
+            best_val_loss = val_loss
             if iter_num > 0:
                 checkpoint = {
                     "model": model.state_dict(),
@@ -230,6 +224,14 @@ while True:
     t0 = t1
     if iter_num % log_interval == 0:
         lossf = loss.item()
+        wandb.log(
+            {
+                "iter": iter_num,
+                "train/lm_loss": lossf,
+                "train/loss": lossf,
+                "lr": lr,
+            }
+        )
         print(f"iter {iter_num}: loss {lossf:.4f}, time {dt*1000:.2f}ms")
 
     iter_num += 1
