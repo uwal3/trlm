@@ -35,8 +35,8 @@ n_head = 6
 n_embd = 576
 dropout = 0.0
 bias = False
-H_cycles: int = 3
-L_cycles: int = 2
+H_cycles: int = 2
+L_cycles: int = 3
 halt_max_steps: int = 1
 no_ACT_continue: bool = True
 
