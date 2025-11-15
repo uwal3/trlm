@@ -206,7 +206,7 @@ class TRLM(nn.Module):
                 input_pos=input_pos,
                 input_pos_maxp1=input_pos_maxp1,
             )
-            # z_H = self.H_norm(z_H)
+            z_H = self.H_norm(z_H)
         # 1 with grad
         for _L_step in range(self.config.L_cycles):
             z_L = self._run_blocks(
@@ -227,7 +227,7 @@ class TRLM(nn.Module):
             input_pos=input_pos,
             input_pos_maxp1=input_pos_maxp1,
         )
-        # z_H = self.H_norm(z_H)
+        z_H = self.H_norm(z_H)
 
         # LM Outputs
         new_inner_carry = TRLMInnerCarry(
