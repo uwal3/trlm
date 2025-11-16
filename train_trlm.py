@@ -98,13 +98,13 @@ val_loader = DataLoader(
     collate_fn=collate_fn,
 )
 
-buffer_size = batch_size * 2
-train_buffer = deque(maxlen=buffer_size)
-val_buffer = deque(maxlen=buffer_size)
+buffer_size = batch_size * 4
+train_buffer = deque(maxlen=buffer_size * 2)
+val_buffer = deque(maxlen=buffer_size * 2)
 
 
 def refill_buffer(buffer: deque, loader_iter, min_size):
-    while len(buffer) < min_size:
+    while len(buffer) < buffer_size:
         try:
             batch = next(loader_iter)
             l = batch["input_ids"].size(0)

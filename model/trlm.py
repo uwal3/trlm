@@ -156,9 +156,10 @@ class TRLM(nn.Module):
 
         current_data = {
             "input_ids": batch["input_ids"].to(device),
-            "target": batch["target"].to(device),
             "embed": embeds.to(device),
         }
+        if "target" in batch.keys():
+            batch["target"] = batch["target"].to(device)
 
         return TRLMCarry(
             inner_carry=self.empty_carry(
@@ -173,69 +174,33 @@ class TRLM(nn.Module):
 
     def _inner_forward(
         self,
-        carry: TRLMInnerCarry,
+        inner_carry: TRLMInnerCarry,
         x: torch.Tensor,
         input_pos: torch.Tensor | None,
         input_pos_maxp1: int | None,
     ):
-        z_H, z_L = carry.z_H, carry.z_L
+        z_H, z_L = inner_carry.z_H, inner_carry.z_L
 
         cos, sin, mask, input_pos_maxp1 = self._pos_embed(
             x.size(1), input_pos=input_pos, input_pos_maxp1=input_pos_maxp1
         )
 
-        # H_cycles-1 without grad
-        # with torch.no_grad():
-        for _H_step in range(self.config.H_cycles - 1):
-            for _L_step in range(self.config.L_cycles):
-                z_L = self._run_blocks(
-                    z_L,
-                    z_H + x,
-                    cos=cos,
-                    sin=sin,
-                    mask=mask,
-                    input_pos=input_pos,
-                    input_pos_maxp1=input_pos_maxp1,
-                )
-            z_H = self._run_blocks(
-                z_H,
-                z_L,
-                cos=cos,
-                sin=sin,
-                mask=mask,
-                input_pos=input_pos,
-                input_pos_maxp1=input_pos_maxp1,
-            )
-        # 1 with grad
-        for _L_step in range(self.config.L_cycles):
-            z_L = self._run_blocks(
-                z_L,
-                z_H + x,
-                cos=cos,
-                sin=sin,
-                mask=mask,
-                input_pos=input_pos,
-                input_pos_maxp1=input_pos_maxp1,
-            )
-        z_H = self._run_blocks(
-            z_H,
-            z_L,
+        rope_args = dict(
             cos=cos,
             sin=sin,
             mask=mask,
             input_pos=input_pos,
             input_pos_maxp1=input_pos_maxp1,
         )
+        for _H_step in range(self.config.H_cycles):
+            for _L_step in range(self.config.L_cycles):
+                z_L = self._run_blocks(z_L, z_H + x, **rope_args)
+            z_H = self._run_blocks(z_H, z_L, **rope_args)
 
-        # LM Outputs
-        new_inner_carry = TRLMInnerCarry(
-            z_H=z_H.detach(), z_L=z_L.detach()
-        )  # New carry no grad
+        new_inner_carry = TRLMInnerCarry(z_H=z_H.detach(), z_L=z_L.detach())
         output = self.transformer.ln_f(z_H)  # type: ignore
         output = self.lm_head(output)
-        q_logits = self.q_head(z_H[:, -1]).to(
-            torch.float32
-        )  # Q-head; uses the last position
+        q_logits = self.q_head(z_H[:, -1]).to(torch.float32)
 
         return new_inner_carry, output, (q_logits[..., 0], q_logits[..., 1])
 
@@ -338,13 +303,14 @@ class TRLM(nn.Module):
         if num_samples_provided > 0:
             new_samples_embeds = self.transformer.wte(
                 new_samples["input_ids"]  # type: ignore
-            )  # pyright: ignore[reportCallIssue]
+            )
             if self.config.scale_embeddings:
                 new_samples_embeds = new_samples_embeds * torch.tensor(
                     self.config.n_embd**0.5, dtype=new_samples_embeds.dtype
                 )
+            if "target" in new_samples.keys():
+                new_current_data["target"][halted_indices] = new_samples["target"]  # type: ignore
             new_current_data["input_ids"][halted_indices] = new_samples["input_ids"]  # type: ignore
-            new_current_data["target"][halted_indices] = new_samples["target"]  # type: ignore
             new_current_data["embed"][halted_indices] = new_samples_embeds
 
         new_inner_carry, logits, (q_halt_logits, q_continue_logits) = (
@@ -362,6 +328,9 @@ class TRLM(nn.Module):
             "q_continue_logits": q_continue_logits,
         }
 
+        if not "target" in carry.current_data.keys():
+            return carry, outputs
+
         with torch.no_grad():
             # Step
             new_steps = new_steps + 1
@@ -369,7 +338,6 @@ class TRLM(nn.Module):
 
             halted = is_last_step
 
-            # if training, and ACT is enabled
             if self.training and (self.config.halt_max_steps > 1):
 
                 # Halt signal
