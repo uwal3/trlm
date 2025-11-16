@@ -159,7 +159,7 @@ class TRLM(nn.Module):
             "embed": embeds.to(device),
         }
         if "target" in batch.keys():
-            batch["target"] = batch["target"].to(device)
+            current_data["target"] = batch["target"].to(device)
 
         return TRLMCarry(
             inner_carry=self.empty_carry(
