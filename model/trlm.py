@@ -158,7 +158,7 @@ class TRLM(nn.Module):
             "input_ids": batch["input_ids"].to(device),
             "embed": embeds.to(device),
         }
-        if "target" in batch.keys():
+        if "target" in batch:
             current_data["target"] = batch["target"].to(device)
 
         return TRLMCarry(
@@ -308,7 +308,7 @@ class TRLM(nn.Module):
                 new_samples_embeds = new_samples_embeds * torch.tensor(
                     self.config.n_embd**0.5, dtype=new_samples_embeds.dtype
                 )
-            if "target" in new_samples.keys():
+            if "target" in new_samples:
                 new_current_data["target"][halted_indices] = new_samples["target"]  # type: ignore
             new_current_data["input_ids"][halted_indices] = new_samples["input_ids"]  # type: ignore
             new_current_data["embed"][halted_indices] = new_samples_embeds
