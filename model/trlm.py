@@ -206,7 +206,6 @@ class TRLM(nn.Module):
                 input_pos=input_pos,
                 input_pos_maxp1=input_pos_maxp1,
             )
-            z_H = self.H_norm(z_H)
         # 1 with grad
         for _L_step in range(self.config.L_cycles):
             z_L = self._run_blocks(
@@ -227,14 +226,13 @@ class TRLM(nn.Module):
             input_pos=input_pos,
             input_pos_maxp1=input_pos_maxp1,
         )
-        z_H = self.H_norm(z_H)
 
         # LM Outputs
         new_inner_carry = TRLMInnerCarry(
             z_H=z_H.detach(), z_L=z_L.detach()
         )  # New carry no grad
         output = self.transformer.ln_f(z_H)  # type: ignore
-        output = self.lm_head(z_H)
+        output = self.lm_head(output)
         q_logits = self.q_head(z_H[:, -1]).to(
             torch.float32
         )  # Q-head; uses the last position
