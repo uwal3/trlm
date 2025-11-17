@@ -29,7 +29,7 @@ batch_size = 8
 block_size = 1024
 gradient_accumulation_steps = 32
 
-n_layer = 12
+n_layer = 8
 n_head = 12
 n_embd = 768
 dropout = 0.0
