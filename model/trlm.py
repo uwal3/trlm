@@ -198,7 +198,7 @@ class TRLM(nn.Module):
             z_H = self._run_blocks(z_H, z_L, **rope_args)
 
         new_inner_carry = TRLMInnerCarry(z_H=z_H.detach(), z_L=z_L.detach())
-        output = self.transformer.ln_f(z_L)  # type: ignore
+        output = self.transformer.ln_f(z_H)  # type: ignore
         output = self.lm_head(output)
         q_logits = self.q_head(z_H[:, -1]).to(torch.float32)
 
