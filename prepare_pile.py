@@ -5,7 +5,7 @@ from transformers import AutoTokenizer
 from itertools import islice
 
 dataset_name = "EleutherAI/the_pile_deduplicated"
-dataset_config = "all"
+dataset_config = "default"
 
 tokenizer_name = "EleutherAI/gpt-neox-20b"
 
