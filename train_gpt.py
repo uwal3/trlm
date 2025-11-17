@@ -15,9 +15,9 @@ from model.gpt import GPT
 
 
 out_dir = "out"
-eval_interval = 1000
+eval_interval = 100
 log_interval = 10
-eval_iters = 200
+eval_iters = 20
 always_save_checkpoint = True
 
 wandb_log = True
