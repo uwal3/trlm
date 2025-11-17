@@ -5,6 +5,7 @@ from contextlib import nullcontext
 
 import torch
 from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
 import torch.nn.functional as F
 import wandb
 
@@ -23,19 +24,19 @@ wandb_log = True
 wandb_project = "trlm"
 wandb_run_name = "gpt-" + str(time.time())
 
-dataset_dir = "data/wikitext"
-batch_size = 16
+dataset_dir = "data/the_pile"
+batch_size = 8
 block_size = 1024
-gradient_accumulation_steps = 4
+gradient_accumulation_steps = 32
 
-n_layer = 2
-n_head = 6
-n_embd = 576
+n_layer = 12
+n_head = 12
+n_embd = 768
 dropout = 0.0
 bias = False
 
 learning_rate = 6e-4
-max_iters = 25000
+max_iters = 300000
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
@@ -87,13 +88,15 @@ val_loader = DataLoader(
     val_data, batch_size=batch_size, num_workers=num_workers, pin_memory=True
 )
 
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+
 model_args = dict(
     n_layer=n_layer,
     n_head=n_head,
     n_embd=n_embd,
     block_size=block_size,
     bias=bias,
-    vocab_size=50304,
+    vocab_size=tokenizer.vocab_size,
 )
 gptconf = GPTConfig(**model_args)
 model = GPT(gptconf)

@@ -276,21 +276,22 @@ while True:
             for k, v in metrics.items():
                 metrics_acc[k] += v.detach()
 
-        halted_indices = torch.where(carry.halted)[0]
-        num_halted = len(halted_indices)
+        # halted_indices = torch.where(carry.halted)[0]
+        # num_halted = len(halted_indices)
 
-        if num_halted > 0:
-            if not refill_buffer(train_buffer, train_iter, num_halted):
-                train_iter = iter(train_loader)
-                refill_buffer(train_buffer, train_iter, num_halted)
+        # if num_halted > 0:
+        #     if not refill_buffer(train_buffer, train_iter, num_halted):
+        #         train_iter = iter(train_loader)
+        #         refill_buffer(train_buffer, train_iter, num_halted)
 
-            items = [train_buffer.popleft() for _ in range(num_halted)]
-            new_samples = {
-                k: torch.stack([item[k] for item in items]).to(device)
-                for k in items[0].keys()
-            }
-        else:
-            new_samples = None
+        #     items = [train_buffer.popleft() for _ in range(num_halted)]
+        # new_samples = {
+        #     k: torch.stack([item[k] for item in items]).to(device)
+        #     for k in items[0].keys()
+        # }
+        # else:
+        #     new_samples = None
+        new_samples = {k: v.to(device) for k, v in next(train_iter)}
 
         detached_inner_carry = TRLMInnerCarry(
             z_H=carry.inner_carry.z_H.detach(), z_L=carry.inner_carry.z_L.detach()
