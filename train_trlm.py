@@ -37,8 +37,8 @@ dropout = 0.0
 bias = False
 H_cycles: int = 1
 L_cycles: int = 6
-halt_max_steps: int = 1
-no_ACT_continue: bool = True
+halt_max_steps: int = 4
+no_ACT_continue: bool = False
 
 learning_rate = 6e-4
 max_iters = 40000
