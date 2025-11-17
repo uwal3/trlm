@@ -116,7 +116,7 @@ def refill_buffer(buffer: deque, loader_iter, min_size):
     return True
 
 
-tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+tokenizer = AutoTokenizer.from_pretrained("gpt2")
 model_args = dict(
     n_layer=n_layer,
     n_head=n_head,
