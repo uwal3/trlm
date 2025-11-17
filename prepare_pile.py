@@ -7,7 +7,7 @@ from itertools import islice
 dataset_name = "EleutherAI/the_pile_deduplicated"
 dataset_config = "all"
 
-tokenizer_name = "gpt2"
+tokenizer_name = "EleutherAI/gpt-neox-20b"
 
 output_dir = "data/the_pile"
 os.makedirs(output_dir, exist_ok=True)

@@ -6,6 +6,7 @@ from collections import deque
 
 import torch
 from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
 import torch.nn.functional as F
 import wandb
 
@@ -115,13 +116,14 @@ def refill_buffer(buffer: deque, loader_iter, min_size):
     return True
 
 
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
 model_args = dict(
     n_layer=n_layer,
     n_head=n_head,
     n_embd=n_embd,
     block_size=block_size,
     bias=bias,
-    vocab_size=50304,
+    vocab_size=tokenizer.vocab_size,
     H_cycles=H_cycles,
     L_cycles=L_cycles,
     halt_max_steps=halt_max_steps,
