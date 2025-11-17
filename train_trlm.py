@@ -26,19 +26,19 @@ wandb_log = True
 wandb_project = "trlm"
 wandb_run_name = "trlm-" + str(time.time())
 
-dataset_dir = "data/wikitext"
+dataset_dir = "data/the_pile"
 batch_size = 16
 block_size = 1024
-gradient_accumulation_steps = 4
+gradient_accumulation_steps = 16
 
-n_layer = 2
-n_head = 6
-n_embd = 576
+n_layer = 3
+n_head = 12
+n_embd = 768
 dropout = 0.0
 bias = False
 H_cycles: int = 1
 L_cycles: int = 6
-halt_max_steps: int = 4
+halt_max_steps: int = 1
 no_ACT_continue: bool = True
 
 learning_rate = 6e-4
@@ -111,12 +111,12 @@ def refill_buffer(buffer: deque, loader_iter, min_size):
             l = batch["input_ids"].size(0)
             samples = [{k: v[i] for k, v in batch.items()} for i in range(l)]
             buffer.extend(samples)
-        except:
+        except StopIteration:
             return False
     return True
 
 
-tokenizer = AutoTokenizer.from_pretrained("gpt2")
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
 model_args = dict(
     n_layer=n_layer,
     n_head=n_head,

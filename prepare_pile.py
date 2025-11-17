@@ -12,7 +12,7 @@ tokenizer_name = "EleutherAI/gpt-neox-20b"
 output_dir = "data/the_pile"
 os.makedirs(output_dir, exist_ok=True)
 
-NUM_DOCUMENTS_TO_PROCESS = 200_000
+NUM_DOCUMENTS_TO_PROCESS = 300_000
 VAL_RATIO = 0.005  # 0.5%
 RESERVE_EVERY_N_DOCS = int(1 / VAL_RATIO)
 
