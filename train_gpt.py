@@ -106,20 +106,19 @@ def val(model, val_loader, cfg, ctx):
 
     model.eval()
     for _ in range(eval_iters):
-        for micro_step in range(cfg.data.gradient_accumulation_steps):
-            with ctx:
-                logits = model(X)
-                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
-                loss = loss / cfg.data.gradient_accumulation_steps
+        with ctx:
+            logits = model(X)
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
+            loss = loss / cfg.data.gradient_accumulation_steps
 
-                total_loss += loss.item()
+            total_loss += loss.item()
 
-            try:
-                X, Y = next(val_iter)
-            except StopIteration:
-                val_iter = iter(val_loader)
-                X, Y = next(val_iter)
-            X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+        try:
+            X, Y = next(val_iter)
+        except StopIteration:
+            val_iter = iter(val_loader)
+            X, Y = next(val_iter)
+        X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
 
     return total_loss / eval_iters
 
