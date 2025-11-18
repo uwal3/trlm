@@ -124,9 +124,16 @@ def val(model, val_loader, cfg, ctx):
     return total_loss / eval_iters
 
 
-def train(model, optimizer, train_loader, val_loader, cfg, ctx=nullcontext()):
-    iter_num = 0
-    best_val_loss = 1e9
+def train(
+    model,
+    optimizer,
+    train_loader,
+    val_loader,
+    cfg,
+    ctx=nullcontext(),
+    iter_num=0,
+    best_val_loss=1e9,
+):
 
     train_iter = iter(train_loader)
     X, Y = next(train_iter)
@@ -198,6 +205,7 @@ def train(model, optimizer, train_loader, val_loader, cfg, ctx=nullcontext()):
                     },
                     step=iter_num,
                 )
+        iter_num += 1
 
 
 @hydra.main(config_path="./conf", config_name="config")
@@ -221,6 +229,25 @@ def main(cfg: DictConfig):
         weight_decay=cfg.optimizer.weight_decay,
     )
 
+    iter_num = 0
+    best_val_loss = 1e9
+
+    if cfg.training.resume_from_checkpoint:
+        print(f"resuming training from {cfg.training.resume_from_checkpoint}...")
+
+        checkpoint = torch.load(
+            cfg.training.resume_from_checkpoint, map_location=cfg.environment.device
+        )
+
+        model.load_state_dict(checkpoint["model"])
+        optimizer.load_state_dict(checkpoint["optimizer"])
+        iter_num = checkpoint["iter_num"]
+        best_val_loss = checkpoint["best_val_loss"]
+
+        print(
+            f"reesumed from iteration {iter_num} with best validation loss {best_val_loss:.4f}"
+        )
+
     if cfg.environment.compile:
         print("compiling the model..")
         model = torch.compile(model)
@@ -236,6 +263,8 @@ def main(cfg: DictConfig):
         val_loader=val_loader,
         cfg=cfg,
         ctx=ctx,  # type: ignore
+        iter_num=iter_num,
+        best_val_loss=best_val_loss,
     )
 
     if cfg.wandb.log:

@@ -11,6 +11,7 @@ training:
   eval_iters: 200
   always_save_checkpoint: True
   max_iters: 300000
+  resume_from_checkpoint: null
 
 environment:
   device: "cuda"
