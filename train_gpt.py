@@ -159,6 +159,7 @@ def train(
                     "iter_num": iter_num,
                     "best_val_loss": best_val_loss,
                     "cfg": OmegaConf.to_container(cfg, resolve=True),
+                    "wandb_run_id": wandb.run.id if cfg.wandb.log else None,
                 }
                 print(f"saving checkpoint to {cfg.training.out_dir}")
                 torch.save(
@@ -211,11 +212,26 @@ def train(
 @hydra.main(config_path="./conf", config_name="config")
 def main(cfg: DictConfig):
 
+    checkpoint = None
+    wandb_run_id = None
+    if cfg.training.resume_from_checkpoint:
+        print(
+            f"ignoring current config, loading cfg used in {cfg.training.resume_from_checkpoint}"
+        )
+        checkpoint_path = os.path.join(
+            get_original_cwd(), cfg.training.resume_from_checkpoint
+        )
+        checkpoint = torch.load(checkpoint_path)
+        cfg = OmegaConf.create(checkpoint["cfg"])  # type: ignore
+        wandb_run_id = checkpoint.get("wandb_run_id")
+
     if cfg.wandb.log:
         wandb.init(
             project=cfg.wandb.project,
             name=cfg.wandb.run_name,
             config=OmegaConf.to_container(cfg, resolve=True),  # type: ignore
+            id=wandb_run_id,
+            resume="allow",
         )
 
     ctx = setup_environment(cfg)
@@ -231,23 +247,11 @@ def main(cfg: DictConfig):
 
     iter_num = 0
     best_val_loss = 1e9
-
-    if cfg.training.resume_from_checkpoint:
-        print(f"resuming training from {cfg.training.resume_from_checkpoint}...")
-
-        checkpoint_path = os.path.join(
-            get_original_cwd(), cfg.training.resume_from_checkpoint
-        )
-        checkpoint = torch.load(checkpoint_path, map_location=cfg.environment.device)
-
+    if checkpoint:
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
         iter_num = checkpoint["iter_num"]
         best_val_loss = checkpoint["best_val_loss"]
-
-        print(
-            f"reesumed from iteration {iter_num} with best validation loss {best_val_loss:.4f}"
-        )
 
     if cfg.environment.compile:
         print("compiling the model..")
