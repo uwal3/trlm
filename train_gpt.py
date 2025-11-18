@@ -7,6 +7,7 @@ import hydra
 import torch
 import torch.nn.functional as F
 import wandb
+from hydra.utils import get_original_cwd
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
@@ -38,9 +39,8 @@ def setup_environment(cfg: DictConfig):
 
 
 def prepare_dataloaders(cfg: DictConfig):
-    dataset_dir = cfg.data.dir
+    dataset_dir = os.path.join(get_original_cwd(), cfg.data.dir)
     block_size = cfg.data.block_size
-    num_workers = cfg.data.num_workers
 
     train_data = TextDataset(os.path.join(dataset_dir, "train.bin"), block_size)
     val_data = TextDataset(os.path.join(dataset_dir, "val.bin"), block_size)
