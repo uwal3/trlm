@@ -22,8 +22,6 @@ def setup_environment(cfg: DictConfig):
     dtype = cfg.environment.dtype
 
     torch.manual_seed(52)
-    torch.backends.cuda.matmul.allow_tf32 = True
-    torch.backends.cudnn.allow_tf32 = True
     device_type = "cuda" if "cuda" in device else "cpu"
     ptdtype = {
         "float32": torch.float32,
