@@ -109,7 +109,6 @@ def val(model, val_loader, cfg, ctx):
         with ctx:
             logits = model(X)
             loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
-            loss = loss / cfg.data.gradient_accumulation_steps
 
             total_loss += loss.item()
 
