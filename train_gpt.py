@@ -152,6 +152,7 @@ def train(
         if iter_num % cfg.training.eval_interval == 0:
             val_loss = val(model=model, val_loader=val_loader, cfg=cfg, ctx=ctx)
             if val_loss < best_val_loss or cfg.training.always_save_checkpoint:
+                best_val_loss = val_loss
                 checkpoint = {
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
@@ -164,8 +165,12 @@ def train(
                 print(f"saving checkpoint to {cfg.training.out_dir}")
                 torch.save(
                     checkpoint,
-                    os.path.join(cfg.training.out_dir, f"ckpt-{iter_num}.pt"),
+                    os.path.join(
+                        os.path.join(get_original_cwd(), cfg.training.out_dir),
+                        f"ckpt-{iter_num}.pt",
+                    ),
                 )
+            print(f"validation loss: {val_loss:2f}")
             if cfg.wandb.log:
                 wandb.log({"validation/loss": val_loss}, step=iter_num)
 
