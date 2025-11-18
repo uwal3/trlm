@@ -16,7 +16,7 @@ training:
 environment:
   device: "cuda"
   dtype: "bfloat16"
-  compile: False
+  compile: True
   seed: 52
 
 wandb:
