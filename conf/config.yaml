@@ -8,7 +8,7 @@ training:
   out_dir: "out"
   eval_interval: 500
   log_interval: 10
-  eval_iters: 5
+  eval_iters: 3
   always_save_checkpoint: True
   max_iters: 300000
   resume_from_checkpoint: null
