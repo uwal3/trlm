@@ -1,0 +1,24 @@
+defaults:
+  - model: rlm
+  - optimizer: adamw
+  - data: the_pile
+  - _self_
+
+training:
+  out_dir: "out"
+  eval_interval: 1000
+  log_interval: 10
+  eval_iters: 200
+  always_save_checkpoint: True
+  max_iters: 300000
+
+environment:
+  device: "cuda"
+  dtype: "bfloat16"
+  compile: False
+  seed: 52
+
+wandb:
+  log: True
+  project: "trlm"
+  run_name: "gpt-${now:%Y-%m-%d-%H-%M-%S}"

@@ -1,0 +1,8 @@
+# @package _group_
+name: "wikitext"
+dir: "data/wikitext"
+batch_size: 16
+gradient_accumulation_steps: 4
+block_size: 1024
+num_workers: 4
+tokenizer: "gpt2"

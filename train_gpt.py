@@ -1,246 +1,246 @@
+import math
 import os
 import time
-import math
 from contextlib import nullcontext
 
+import hydra
 import torch
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
 import torch.nn.functional as F
 import wandb
+from omegaconf import DictConfig, OmegaConf
+from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
 
 from dataset import TextDataset
 from model.config import Config as GPTConfig
 from model.gpt import GPT
 
 
-out_dir = "out"
-eval_interval = 1000
-log_interval = 10
-eval_iters = 200
-always_save_checkpoint = True
+def setup_environment(cfg: DictConfig):
+    device = cfg.environment.device
+    dtype = cfg.environment.dtype
 
-wandb_log = True
-wandb_project = "trlm"
-wandb_run_name = "gpt-" + str(time.time())
+    torch.manual_seed(52)
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+    device_type = "cuda" if "cuda" in device else "cpu"
+    ptdtype = {
+        "float32": torch.float32,
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+    }[dtype]
+    ctx = (
+        nullcontext()
+        if device_type == "cpu"
+        else torch.amp.autocast_mode.autocast(device_type=device_type, dtype=ptdtype)
+    )
+    return ctx
 
-dataset_dir = "data/the_pile"
-batch_size = 16
-block_size = 1024
-gradient_accumulation_steps = 32
 
-n_layer = 8
-n_head = 12
-n_embd = 768
-dropout = 0.0
-bias = False
+def prepare_dataloaders(cfg: DictConfig):
+    dataset_dir = cfg.data.dir
+    block_size = cfg.data.block_size
+    num_workers = cfg.data.num_workers
 
-learning_rate = 6e-4
-max_iters = 300000
-weight_decay = 1e-1
-beta1 = 0.9
-beta2 = 0.95
-grad_clip = 1.0
+    train_data = TextDataset(os.path.join(dataset_dir, "train.bin"), block_size)
+    val_data = TextDataset(os.path.join(dataset_dir, "val.bin"), block_size)
 
-decay_lr = True
-warmup_iters = 2000
-lr_decay_iters = max_iters
-min_lr = 6e-5
+    train_loader = DataLoader(
+        train_data,
+        batch_size=cfg.data.batch_size,
+        shuffle=True,
+        num_workers=cfg.data.num_workers,
+        pin_memory=True,
+        drop_last=True,
+    )
+    val_loader = DataLoader(
+        val_data,
+        batch_size=cfg.data.batch_size,
+        num_workers=cfg.data.num_workers,
+        pin_memory=True,
+    )
 
-device = "cuda"
-dtype = (
-    "bfloat16"
-    if torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-    else "float16"
-)
-compile = False
-num_workers = 4
+    return train_loader, val_loader
 
-torch.manual_seed(52)
-torch.backends.cuda.matmul.allow_tf32 = True
-torch.backends.cudnn.allow_tf32 = True
-device_type = "cuda" if "cuda" in device else "cpu"
-ptdtype = {
-    "float32": torch.float32,
-    "bfloat16": torch.bfloat16,
-    "float16": torch.float16,
-}[dtype]
-ctx = (
-    nullcontext()
-    if device_type == "cpu"
-    else torch.amp.autocast_mode.autocast(device_type=device_type, dtype=ptdtype)
-)
 
-os.makedirs(out_dir, exist_ok=True)
+def create_model(cfg: DictConfig):
+    tokenizer = AutoTokenizer.from_pretrained(cfg.data.tokenizer)
 
-train_data = TextDataset(os.path.join(dataset_dir, "train.bin"), block_size)
-val_data = TextDataset(os.path.join(dataset_dir, "val.bin"), block_size)
+    model_args = dict(
+        n_layer=cfg.model.n_layer,
+        n_head=cfg.model.n_head,
+        n_embd=cfg.model.n_embd,
+        block_size=cfg.data.block_size,
+        bias=cfg.model.bias,
+        vocab_size=tokenizer.vocab_size,
+    )
+    gptconf = GPTConfig(**model_args)  # type: ignore
+    model = GPT(gptconf)
+    model.to(cfg.environment.device)
 
-train_loader = DataLoader(
-    train_data,
-    batch_size=batch_size,
-    shuffle=True,
-    num_workers=num_workers,
-    pin_memory=True,
-    drop_last=True,
-)
-val_loader = DataLoader(
-    val_data, batch_size=batch_size, num_workers=num_workers, pin_memory=True
-)
+    return model
 
-tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
 
-model_args = dict(
-    n_layer=n_layer,
-    n_head=n_head,
-    n_embd=n_embd,
-    block_size=block_size,
-    bias=bias,
-    vocab_size=tokenizer.vocab_size,
-)
-gptconf = GPTConfig(**model_args)
-model = GPT(gptconf)
-model.to(device)
+def get_lr(iter_num, cfg):
+    lr_decay_iters = cfg.optimizer.lr_decay_iters
+    warmup_iter = cfg.optimizer.warmup_iters
+    min_lr = cfg.optimizer.min_lr
 
-print(f"number of parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f} M")
-
-optimizer = torch.optim.AdamW(
-    model.parameters(),
-    lr=learning_rate,
-    betas=(beta1, beta2),
-    weight_decay=weight_decay,
-)
-
-if compile:
-    print("compiling the model..")
-    model = torch.compile(model)
+    if iter_num < warmup_iter:
+        return cfg.optimizer.learning_rate * iter_num / warmup_iter
+    if iter_num > lr_decay_iters:
+        return min_lr
+    decay_ratio = (lr_decay_iters - iter_num) / (lr_decay_iters - warmup_iter)
+    coeff = 0.5 * (1 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (cfg.optimizer.learning_rate - min_lr)
 
 
 @torch.no_grad()
-def estimate_loss():
-    out = {}
+def val(model, val_loader, cfg, ctx):
+    eval_iters = cfg.training.eval_iters * cfg.data.gradient_accumulation_steps
+    total_loss = 0
+
+    val_iter = iter(val_loader)
+    X, Y = next(val_iter)
+    X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+
     model.eval()
-    losses = torch.zeros(eval_iters)
-    for k, (X, Y) in enumerate(val_loader):
-        if k >= eval_iters:
+    for _ in range(eval_iters):
+        for micro_step in range(cfg.data.gradient_accumulation_steps):
+            with ctx:
+                logits = model(X)
+                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
+                loss = loss / cfg.data.gradient_accumulation_steps
+
+                total_loss += loss.item()
+
+            try:
+                X, Y = next(val_iter)
+            except StopIteration:
+                val_iter = iter(val_loader)
+                X, Y = next(val_iter)
+            X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+
+    return total_loss / eval_iters
+
+
+def train(model, optimizer, train_loader, val_loader, cfg, ctx=nullcontext()):
+    iter_num = 0
+    best_val_loss = 1e9
+
+    train_iter = iter(train_loader)
+    X, Y = next(train_iter)
+    X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+
+    while True:
+        t0 = time.time()
+
+        if iter_num >= cfg.training.max_iters:
             break
-        X, Y = X.to(device), Y.to(device)
-        with ctx:
-            logits = model(X)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
-        losses[k] = loss.item()
-    loss = losses.mean()
-    model.train()
-    return loss
+        if cfg.optimizer.decay_lr:
+            lr = get_lr(iter_num, cfg)
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = lr
 
-
-def get_lr(it):
-    if it < warmup_iters:
-        return learning_rate * it / warmup_iters
-    if it > lr_decay_iters:
-        return min_lr
-    decay_ratio = (it - warmup_iters) / (lr_decay_iters - warmup_iters)
-    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
-    return min_lr + coeff * (learning_rate - min_lr)
-
-
-if wandb_log:
-    config_log = {
-        k: v
-        for k, v in locals().items()
-        if k
-        in [
-            "batch_size",
-            "block_size",
-            "n_layer",
-            "n_head",
-            "n_embd",
-            "learning_rate",
-            "max_iters",
-        ]
-    }
-    wandb.init(project=wandb_project, name=wandb_run_name, config=config_log)
-
-iter_num = 0
-best_val_loss = 1e9
-t0 = time.time()
-
-train_iter = iter(train_loader)
-X, Y = next(train_iter)
-X, Y = X.to(device), Y.to(device)
-
-while True:
-    if decay_lr:
-        lr = get_lr(iter_num)
-        for param_group in optimizer.param_groups:
-            param_group["lr"] = lr
-    else:
-        lr = learning_rate
-
-    if iter_num % eval_interval == 0:
-        val_loss = estimate_loss()
-        print(f"step {iter_num}: val loss {val_loss:.4f}")
-        if wandb_log:
-            wandb.log(
-                {
-                    "iter": iter_num,
-                    "validation/lm_loss": val_loss,
-                }
-            )
-        if val_loss < best_val_loss or always_save_checkpoint:
-            best_val_loss = val_loss
-            if iter_num > 0:
+        if iter_num % cfg.training.eval_interval == 0:
+            val_loss = val(model=model, val_loader=val_loader, cfg=cfg, ctx=ctx)
+            if val_loss < best_val_loss or cfg.training.always_save_checkpoint:
                 checkpoint = {
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
-                    "model_args": model_args,
+                    "model_args": OmegaConf.to_container(cfg.model, resolve=True),
                     "iter_num": iter_num,
                     "best_val_loss": best_val_loss,
+                    "cfg": OmegaConf.to_container(cfg, resolve=True),
                 }
-                print(f"saving checkpoint to {out_dir}")
-                torch.save(checkpoint, os.path.join(out_dir, f"ckpt-{iter_num}.pt"))
-    total_loss = 0
-    for micro_step in range(gradient_accumulation_steps):
-        with ctx:
-            logits = model(X)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
-            loss = loss / gradient_accumulation_steps
+                print(f"saving checkpoint to {cfg.training.out_dir}")
+                torch.save(
+                    checkpoint,
+                    os.path.join(cfg.training.out_dir, f"ckpt-{iter_num}.pt"),
+                )
+            if cfg.wandb.log:
+                wandb.log({"validation/loss": val_loss}, step=iter_num)
 
-        try:
-            X, Y = next(train_iter)
-        except StopIteration:
-            train_iter = iter(train_loader)
-            X, Y = next(train_iter)
-        X, Y = X.to(device), Y.to(device)
+        total_loss = 0
+        for micro_step in range(cfg.data.gradient_accumulation_steps):
+            with ctx:
+                logits = model(X)
+                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
+                loss = loss / cfg.data.gradient_accumulation_steps
 
-        loss.backward()
-        total_loss += loss.item()
+                total_loss += loss.item()
 
-    if grad_clip != 0.0:
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
+            try:
+                X, Y = next(train_iter)
+            except StopIteration:
+                train_iter = iter(train_loader)
+                X, Y = next(train_iter)
+            X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
 
-    optimizer.step()
+            loss.backward()
 
-    optimizer.zero_grad(set_to_none=True)
+        if cfg.optimizer.grad_clip > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.optimizer.grad_clip)
 
-    t1 = time.time()
-    dt = t1 - t0
-    t0 = t1
-    if iter_num % log_interval == 0:
-        wandb.log(
-            {
-                "iter": iter_num,
-                "train/lm_loss": total_loss,
-                "train/loss": total_loss,
-                "lr": lr,
-            }
+        optimizer.step()
+
+        optimizer.zero_grad(set_to_none=True)
+
+        if iter_num % cfg.training.log_interval == 0:
+            dt = time.time() - t0
+            print(f"iter {iter_num}: loss {total_loss:.4f}, time {dt*1000:.2f}ms")
+            if cfg.wandb.log:
+                wandb.log(
+                    {
+                        "train/loss": total_loss,
+                        "train/lm_loss": total_loss,
+                        "lr": lr,
+                    },
+                    step=iter_num,
+                )
+
+
+@hydra.main(config_path="./conf", config_name="config")
+def main(cfg: DictConfig):
+
+    if cfg.wandb.log:
+        wandb.init(
+            project=cfg.wandb.project,
+            name=cfg.wandb.run_name,
+            config=OmegaConf.to_container(cfg, resolve=True),  # type: ignore
         )
-        print(f"iter {iter_num}: loss {total_loss:.4f}, time {dt*1000:.2f}ms")
 
-    iter_num += 1
+    ctx = setup_environment(cfg)
+    train_loader, val_loader = prepare_dataloaders(cfg)
 
-    if iter_num > max_iters:
-        break
+    model = create_model(cfg)
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=cfg.optimizer.learning_rate,
+        betas=(cfg.optimizer.beta1, cfg.optimizer.beta2),
+        weight_decay=cfg.optimizer.weight_decay,
+    )
 
-if wandb_log:
-    wandb.finish()
+    if cfg.environment.compile:
+        print("compiling the model..")
+        model = torch.compile(model)
+
+    print(
+        f"number of parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f} M"
+    )
+
+    train(
+        model=model,
+        optimizer=optimizer,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        cfg=cfg,
+        ctx=ctx,  # type: ignore
+    )
+
+    if cfg.wandb.log:
+        wandb.finish()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,8 +1,8 @@
 import os
+
 import numpy as np
 from datasets import load_dataset
 from transformers import AutoTokenizer
-
 
 dataset_name = "wikitext"
 dataset_config = "wikitext-103-raw-v1"

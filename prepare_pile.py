@@ -1,8 +1,9 @@
 import os
-import numpy as np
-from datasets import load_dataset, IterableDataset
-from transformers import AutoTokenizer
 from itertools import islice
+
+import numpy as np
+from datasets import IterableDataset, load_dataset
+from transformers import AutoTokenizer
 
 dataset_name = "EleutherAI/the_pile_deduplicated"
 dataset_config = "default"

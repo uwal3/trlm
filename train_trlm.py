@@ -1,20 +1,19 @@
+import math
 import os
 import time
-import math
-from contextlib import nullcontext
 from collections import deque
+from contextlib import nullcontext
 
 import torch
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
 import torch.nn.functional as F
 import wandb
+from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
 
 from dataset import TextDataset, collate_fn
 from model.config import TRLMConfig
-from model.trlm import TRLM, TRLMCarry, TRLMInnerCarry
 from model.loss_head import ACTLossHead
-
+from model.trlm import TRLM, TRLMCarry, TRLMInnerCarry
 
 out_dir = "out"
 eval_interval = 1000

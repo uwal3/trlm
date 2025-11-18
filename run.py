@@ -86,7 +86,7 @@ if __name__ == "__main__":
     tokenizer.pad_token = tokenizer.eos_token  # Важно для некоторых моделей
 
     # --- Генерация ---
-    prompt = "All balls are red. This means "
+    prompt = "one plus one always equals"
 
     print(f"\nПромпт:\n{prompt}\n")
     print("-" * 50)
