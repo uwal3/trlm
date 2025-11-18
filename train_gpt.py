@@ -235,9 +235,10 @@ def main(cfg: DictConfig):
     if cfg.training.resume_from_checkpoint:
         print(f"resuming training from {cfg.training.resume_from_checkpoint}...")
 
-        checkpoint = torch.load(
-            cfg.training.resume_from_checkpoint, map_location=cfg.environment.device
+        checkpoint_path = os.path.join(
+            get_original_cwd(), cfg.training.resume_from_checkpoint
         )
+        checkpoint = torch.load(checkpoint_path, map_location=cfg.environment.device)
 
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optimizer"])
