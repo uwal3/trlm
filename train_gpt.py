@@ -119,7 +119,6 @@ def val(model, val_loader, cfg, ctx):
 
     return total_loss / eval_iters
 
-def compute_loss(model, batch,)
 
 def train(
     model,
