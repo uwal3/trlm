@@ -24,8 +24,6 @@ class ACTLossHead(nn.Module):
         Optional[Dict[str, torch.Tensor]],
         torch.Tensor,
     ]:
-        # Model logits
-        # B x SeqLen x D
         new_carry, outputs = self.model(**model_kwargs)
         target = new_carry.current_data["target"]
 
@@ -36,22 +34,8 @@ class ACTLossHead(nn.Module):
             is_correct = preds == target
             seq_is_correct = is_correct.sum(-1) == sequence_length
 
-            # metrics (halted)
-            valid_metrics = new_carry.halted
-            metrics = {
-                "count": valid_metrics.sum(),
-                "accuracy": torch.where(
-                    valid_metrics, is_correct.float().mean(-1), 0
-                ).sum(),
-                "q_halt_accuracy": (
-                    valid_metrics & ((outputs["q_halt_logits"] >= 0) == seq_is_correct)
-                ).sum(),
-                "steps": torch.where(valid_metrics, new_carry.steps, 0).sum(),
-            }
-
         logits = outputs["logits"].to(torch.float32)
         q_halt_logits = outputs["q_halt_logits"].to(torch.float32)
-        q_continue_logits = outputs["q_continue_logits"].to(torch.float32)
 
         # losses
         lm_loss = F.cross_entropy(
@@ -63,29 +47,16 @@ class ACTLossHead(nn.Module):
             seq_is_correct.to(q_halt_logits.dtype),
             reduction="sum",
         )
-        metrics.update(
-            {
-                "lm_loss": lm_loss.detach(),
-                "q_halt_loss": q_halt_loss.detach(),
-            }
-        )
-
-        # Q continue (bootstrapping target loss); Alexia: This fits Q-learning, but seems totally unecessary
-        q_continue_loss = 0
-        if "target_q_continue" in outputs:
-            q_continue_loss = F.binary_cross_entropy_with_logits(
-                q_continue_logits,
-                outputs["target_q_continue"],
-                reduction="sum",
-            )
-
-            metrics["q_continue_loss"] = q_continue_loss.detach()
+        metrics = {
+            "lm_loss": lm_loss.detach(),
+            "q_halt_loss": q_halt_loss.detach(),
+        }
 
         detached_outputs = {k: outputs[k].detach() for k in return_keys if k in outputs}
 
         return (
             new_carry,
-            lm_loss + 0.5 * (q_halt_loss + q_continue_loss),
+            lm_loss + 0.5 * (q_halt_loss),
             metrics,
             detached_outputs,
             new_carry.halted.all(),
