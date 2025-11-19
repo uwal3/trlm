@@ -1,4 +1,5 @@
 # Copyright Lightning AI. Licensed under the Apache License 2.0, see LICENSE file.
+# modified by uwal3 with inspiration from Tiny Recursive Networks
 
 """Full definition of a decoder-only transformer-based language model, all of it in this single file.
 
@@ -118,61 +119,6 @@ class TRLM(nn.Module):
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-
-    def empty_carry(self, batch_size: int, device, seq_len: int | None = None):
-        if seq_len is None:
-            seq_len = self.config.block_size
-        return TRLMInnerCarry(
-            z_H=torch.empty(
-                batch_size,
-                seq_len,
-                self.config.n_embd,
-                dtype=torch.float32,
-                device=device,
-            ),
-            z_L=torch.empty(
-                batch_size,
-                seq_len,
-                self.config.n_embd,
-                dtype=torch.float32,
-                device=device,
-            ),
-        )
-
-    def reset_inner_carry(
-        self,
-        reset_flag: torch.Tensor,
-        carry: TRLMInnerCarry,
-    ):
-        return TRLMInnerCarry(
-            z_H=torch.where(reset_flag.view(-1, 1, 1), self.H_init, carry.z_H),
-            z_L=torch.where(reset_flag.view(-1, 1, 1), self.L_init, carry.z_L),
-        )
-
-    def initial_carry(self, batch: Dict[str, torch.Tensor], device):
-        batch_size = batch["input_ids"].shape[0]
-
-        embeds = self.transformer.wte(batch["input_ids"])  # type: ignore
-        if self.config.scale_embeddings:
-            embeds = embeds * torch.tensor(self.config.n_embd**0.5, dtype=embeds.dtype)
-
-        current_data = {
-            "input_ids": batch["input_ids"].to(device),
-            "embed": embeds.to(device),
-        }
-        if "target" in batch:
-            current_data["target"] = batch["target"].to(device)
-
-        return TRLMCarry(
-            inner_carry=self.empty_carry(
-                batch_size, device, seq_len=batch["input_ids"].shape[1]
-            ),  # Empty is expected, it will be reseted in first pass as all sequences are halted.
-            steps=torch.zeros((batch_size,), dtype=torch.int32, device=device),
-            halted=torch.ones(
-                (batch_size,), dtype=torch.bool, device=device
-            ),  # Default to halted
-            current_data=current_data,
-        )
 
     def _pos_embed(
         self,
