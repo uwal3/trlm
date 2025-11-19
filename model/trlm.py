@@ -7,8 +7,8 @@ https://github.com/EleutherAI/gpt-neox/tree/main/megatron/model.
 """
 
 import math
-from typing import Optional, Tuple, Dict
 from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -174,38 +174,6 @@ class TRLM(nn.Module):
             current_data=current_data,
         )
 
-    def _inner_forward(
-        self,
-        inner_carry: TRLMInnerCarry,
-        x: torch.Tensor,
-        input_pos: torch.Tensor | None,
-        input_pos_maxp1: int | None,
-    ):
-        z_H, z_L = inner_carry.z_H, inner_carry.z_L
-
-        cos, sin, mask, input_pos_maxp1 = self._pos_embed(
-            x.size(1), input_pos=input_pos, input_pos_maxp1=input_pos_maxp1
-        )
-
-        rope_args = dict(
-            cos=cos,
-            sin=sin,
-            mask=mask,
-            input_pos=input_pos,
-            input_pos_maxp1=input_pos_maxp1,
-        )
-        for _H_step in range(self.config.H_cycles):
-            for _L_step in range(self.config.L_cycles):
-                z_L = self._run_blocks(z_L, z_H + x, **rope_args)
-            z_H = self._run_blocks(z_H, z_L, **rope_args)
-
-        new_inner_carry = TRLMInnerCarry(z_H=z_H.detach(), z_L=z_L.detach())
-        output = self.transformer.ln_f(z_H)  # type: ignore
-        output = self.lm_head(output)
-        q_logits = self.q_head(z_H[:, -1]).to(torch.float32)
-
-        return new_inner_carry, output, (q_logits[..., 0], q_logits[..., 1])
-
     def _pos_embed(
         self,
         seq_len: int,
@@ -281,113 +249,36 @@ class TRLM(nn.Module):
 
     def forward(
         self,
-        carry: TRLMCarry,
-        new_samples: Dict[str, torch.Tensor] | None = None,
+        idx: torch.Tensor,
         input_pos: Optional[torch.Tensor] = None,
         input_pos_maxp1: Optional[int] = None,
     ) -> Tuple[TRLMCarry, Dict[str, torch.Tensor]]:
 
-        halted_indices = torch.where(carry.halted)[0]
-        num_samples_halted = len(halted_indices)
-        num_samples_provided = (
-            new_samples["input_ids"].size(0) if new_samples is not None else 0
-        )
-        assert (
-            num_samples_provided == num_samples_halted
-        ), f"{num_samples_halted} samples needed, but {num_samples_provided} samples provided"
+        # token embeddings of shape (B, T, n_embd)
+        x = self.transformer.wte(idx)  # type: ignore
+        if self.config.scale_embeddings:
+            x = x * torch.tensor(self.config.n_embd**0.5, dtype=x.dtype)
 
-        new_inner_carry = self.reset_inner_carry(carry.halted, carry.inner_carry)
-
-        new_steps = torch.where(carry.halted, 0, carry.steps)
-
-        new_current_data = {k: v.clone() for k, v in carry.current_data.items()}
-
-        if num_samples_provided > 0:
-            new_samples_embeds = self.transformer.wte(
-                new_samples["input_ids"]  # type: ignore
-            )
-            if self.config.scale_embeddings:
-                new_samples_embeds = new_samples_embeds * torch.tensor(
-                    self.config.n_embd**0.5, dtype=new_samples_embeds.dtype
-                )
-            if "target" in new_samples:
-                new_current_data["target"][halted_indices] = new_samples["target"]  # type: ignore
-            new_current_data["input_ids"][halted_indices] = new_samples["input_ids"]  # type: ignore
-            new_current_data["embed"][halted_indices] = new_samples_embeds
-
-        new_inner_carry, logits, (q_halt_logits, q_continue_logits) = (
-            self._inner_forward(
-                new_inner_carry,
-                new_current_data["embed"],
-                input_pos=input_pos,
-                input_pos_maxp1=input_pos_maxp1,
-            )
+        cos, sin, mask, input_pos_maxp1 = self._pos_embed(
+            x.size(1), input_pos=input_pos, input_pos_maxp1=input_pos_maxp1
         )
 
-        outputs = {
-            "logits": logits,
-            "q_halt_logits": q_halt_logits,
-            "q_continue_logits": q_continue_logits,
-        }
-
-        if not "target" in carry.current_data.keys():
-            return carry, outputs
-
-        with torch.no_grad():
-            # Step
-            new_steps = new_steps + 1
-            is_last_step = new_steps >= self.config.halt_max_steps
-
-            halted = is_last_step
-
-            if self.training and (self.config.halt_max_steps > 1):
-
-                # Halt signal
-                # NOTE: During evaluation, always use max steps, this is to guarantee the same halting steps inside a batch for batching purposes
-
-                if self.config.no_ACT_continue:
-                    halted = halted | (q_halt_logits > 0)
-                else:
-                    halted = halted | (q_halt_logits > q_continue_logits)
-
-                # Exploration
-                min_halt_steps = (
-                    torch.rand_like(q_halt_logits) < self.config.halt_exploration_prob
-                ) * torch.randint_like(
-                    new_steps, low=2, high=self.config.halt_max_steps + 1
-                )
-                halted = halted & (new_steps >= min_halt_steps)
-
-                if not self.config.no_ACT_continue:
-                    # Compute target Q
-                    # NOTE: No replay buffer and target networks for computing target Q-value.
-                    # As batch_size is large, there're many parallel envs.
-                    # Similar concept as PQN https://arxiv.org/abs/2407.04811
-                    _, _, (next_q_halt_logits, next_q_continue_logits) = (
-                        self._inner_forward(
-                            new_inner_carry,
-                            new_current_data["embed"],
-                            input_pos=input_pos,
-                            input_pos_maxp1=input_pos_maxp1,
-                        )
-                    )
-                    outputs["target_q_continue"] = torch.sigmoid(
-                        torch.where(
-                            is_last_step,
-                            next_q_halt_logits,
-                            torch.maximum(next_q_halt_logits, next_q_continue_logits),
-                        )
-                    )
-
-        return (
-            TRLMCarry(
-                inner_carry=new_inner_carry,
-                steps=new_steps,
-                halted=halted,
-                current_data=new_current_data,
-            ),
-            outputs,
+        rope_args = dict(
+            cos=cos,
+            sin=sin,
+            mask=mask,
+            input_pos=input_pos,
+            input_pos_maxp1=input_pos_maxp1,
         )
+        for _H_step in range(self.config.H_cycles):
+            for _L_step in range(self.config.L_cycles):
+                z_L = self._run_blocks(z_L, z_H + x, **rope_args)
+            z_H = self._run_blocks(z_H, z_L, **rope_args)
+
+        output = self.transformer.ln_f(z_H)  # type: ignore
+        output = self.lm_head(output)
+
+        return output
 
     def rope_cache(
         self, device: Optional[torch.device] = None

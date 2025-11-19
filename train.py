@@ -5,16 +5,18 @@ from contextlib import nullcontext
 
 import hydra
 import torch
-import torch.nn.functional as F
 import wandb
 from hydra.utils import get_original_cwd
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from dataset import TextDataset
+from dataset import TextDataset, collate_fn
 from model.config import Config as GPTConfig
+from model.config import TRLMConfig
 from model.gpt import GPT
+from model.loss_head import LossHead
+from model.trlm import TRLM
 
 
 def setup_environment(cfg: DictConfig):
@@ -50,12 +52,14 @@ def prepare_dataloaders(cfg: DictConfig):
         num_workers=cfg.data.num_workers,
         pin_memory=True,
         drop_last=True,
+        collate_fn=collate_fn,
     )
     val_loader = DataLoader(
         val_data,
         batch_size=cfg.data.batch_size,
         num_workers=cfg.data.num_workers,
         pin_memory=True,
+        collate_fn=collate_fn,
     )
 
     return train_loader, val_loader
@@ -64,19 +68,36 @@ def prepare_dataloaders(cfg: DictConfig):
 def create_model(cfg: DictConfig):
     tokenizer = AutoTokenizer.from_pretrained(cfg.data.tokenizer)
 
-    model_args = dict(
-        n_layer=cfg.model.n_layer,
-        n_head=cfg.model.n_head,
-        n_embd=cfg.model.n_embd,
-        block_size=cfg.data.block_size,
-        bias=cfg.model.bias,
-        vocab_size=tokenizer.vocab_size,
-    )
-    gptconf = GPTConfig(**model_args)  # type: ignore
-    model = GPT(gptconf)
-    model.to(cfg.environment.device)
+    if cfg.model.name == "gpt":
+        model_args = dict(
+            n_layer=cfg.model.n_layer,
+            n_head=cfg.model.n_head,
+            n_embd=cfg.model.n_embd,
+            block_size=cfg.data.block_size,
+            bias=cfg.model.bias,
+            vocab_size=tokenizer.vocab_size,
+        )
+        gptconf = GPTConfig(**model_args)  # type: ignore
+        model = GPT(gptconf)
+        model.to(cfg.environment.device)
+    elif cfg.model.name == "rlm":
+        model_args = dict(
+            n_layer=cfg.model.n_layer,
+            n_head=cfg.model.n_head,
+            n_embd=cfg.model.n_embd,
+            block_size=cfg.data.block_size,
+            bias=cfg.model.bias,
+            vocab_size=tokenizer.vocab_size,
+            H_cycles=cfg.model.h_cycles,
+            L_cycles=cfg.mode.l_cycles,
+            halt_max_steps=cfg.model.halt_max_steps,
+        )
+        trlmconf = TRLMConfig(**model_args)  # type: ignore
+        model = TRLM(trlmconf)
+        model.to(cfg.environment.device)
 
-    return model
+    model_with_loss = LossHead(model)
+    return model_with_loss
 
 
 def get_lr(iter_num, cfg):
@@ -99,23 +120,21 @@ def val(model, val_loader, cfg, ctx):
     total_loss = 0
 
     val_iter = iter(val_loader)
-    X, Y = next(val_iter)
-    X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+    batch = next(val_iter)
+    batch = {k: v.to(cfg.environment.device) for k, v in batch.items()}
 
     model.eval()
     for _ in range(eval_iters):
         with ctx:
-            logits = model(X)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
-
+            loss = model(batch)
             total_loss += loss.item()
 
         try:
-            X, Y = next(val_iter)
+            batch = next(val_iter)
         except StopIteration:
             val_iter = iter(val_loader)
-            X, Y = next(val_iter)
-        X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+            batch = next(val_iter)
+        batch = {k: v.to(cfg.environment.device) for k, v in batch.items()}
 
     return total_loss / eval_iters
 
@@ -132,8 +151,8 @@ def train(
 ):
 
     train_iter = iter(train_loader)
-    X, Y = next(train_iter)
-    X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+    batch = next(train_iter)
+    batch = {k: v.to(cfg.environment.device) for k, v in batch.items()}
 
     while True:
         t0 = time.time()
@@ -156,7 +175,7 @@ def train(
                     "iter_num": iter_num,
                     "best_val_loss": best_val_loss,
                     "cfg": OmegaConf.to_container(cfg, resolve=True),
-                    "wandb_run_id": wandb.run.id if cfg.wandb.log else None,
+                    "wandb_run_id": wandb.run.id if cfg.wandb.log else None,  # type: ignore
                 }
                 print(f"saving checkpoint to {cfg.training.out_dir}")
                 torch.save(
@@ -173,18 +192,17 @@ def train(
         total_loss = 0
         for micro_step in range(cfg.data.gradient_accumulation_steps):
             with ctx:
-                logits = model(X)
-                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), Y.view(-1))
+                loss = model(batch)
                 loss = loss / cfg.data.gradient_accumulation_steps
 
                 total_loss += loss.item()
 
             try:
-                X, Y = next(train_iter)
+                batch = next(train_iter)
             except StopIteration:
                 train_iter = iter(train_loader)
-                X, Y = next(train_iter)
-            X, Y = X.to(cfg.environment.device), Y.to(cfg.environment.device)
+                batch = next(train_iter)
+            batch = {k: v.to(cfg.environment.device) for k, v in batch.items()}
 
             loss.backward()
 

@@ -1,5 +1,5 @@
 defaults:
-  - model: rlm
+  - model: trlm
   - optimizer: adamw
   - data: the_pile
   - _self_

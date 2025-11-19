@@ -1,5 +1,5 @@
 # @package _group_
-name: "rlm"
+name: "trlm"
 n_layer: 2
 l_cycles: 6
 h_cycles: 1
