@@ -88,7 +88,7 @@ def get_lr(iter_num, cfg):
         return cfg.optimizer.learning_rate * iter_num / warmup_iter
     if iter_num > lr_decay_iters:
         return min_lr
-    decay_ratio = (lr_decay_iters - iter_num) / (lr_decay_iters - warmup_iter)
+    decay_ratio = (iter_num - warmup_iter) / (lr_decay_iters - warmup_iter)
     coeff = 0.5 * (1 + math.cos(math.pi * decay_ratio))
     return min_lr + coeff * (cfg.optimizer.learning_rate - min_lr)
 
@@ -119,6 +119,7 @@ def val(model, val_loader, cfg, ctx):
 
     return total_loss / eval_iters
 
+def compute_loss(model, batch,)
 
 def train(
     model,
