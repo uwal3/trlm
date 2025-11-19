@@ -1,5 +1,6 @@
 # @package _group_
 name: "wikitext"
+config: "wikitext-103-raw-v1"
 dir: "data/wikitext"
 batch_size: 16
 gradient_accumulation_steps: 4
