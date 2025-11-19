@@ -249,7 +249,11 @@ def main(cfg: DictConfig):
     iter_num = 0
     best_val_loss = 1e9
     if checkpoint:
-        model.load_state_dict(checkpoint["model"])
+        unwrapped_state_dict = {
+            key.replace("_orig_mod.", ""): value
+            for key, value in checkpoint["model"].items()
+        }
+        model.load_state_dict(unwrapped_state_dict)
         optimizer.load_state_dict(checkpoint["optimizer"])
         iter_num = checkpoint["iter_num"]
         best_val_loss = checkpoint["best_val_loss"]
