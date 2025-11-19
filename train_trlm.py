@@ -28,7 +28,7 @@ wandb_run_name = "trlm-" + str(time.time())
 dataset_dir = "data/the_pile"
 batch_size = 16
 block_size = 1024
-gradient_accumulation_steps = 16
+gradient_accumulation_steps = 32
 
 n_layer = 3
 n_head = 12
@@ -41,7 +41,7 @@ halt_max_steps: int = 1
 no_ACT_continue: bool = True
 
 learning_rate = 6e-4
-max_iters = 40000
+max_iters = 100000
 weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
