@@ -59,19 +59,6 @@ class TRLM(nn.Module):
         self.mask_cache: Optional[torch.Tensor] = None
         self.max_seq_length = self.config.block_size
 
-        self.H_norm = self.config.norm_class(config.n_embd, eps=config.norm_eps)
-
-        self.H_init = nn.Buffer(
-            torch.empty(self.config.n_embd, dtype=torch.float32),
-            persistent=True,
-        )
-        nn.init.trunc_normal_(self.H_init)
-        self.L_init = nn.Buffer(
-            torch.empty(self.config.n_embd, dtype=torch.float32),
-            persistent=True,
-        )
-        nn.init.trunc_normal_(self.L_init)
-
         with torch.no_grad():
             self.q_head.weight.zero_()
             self.q_head.bias.fill_(-5)
@@ -216,6 +203,17 @@ class TRLM(nn.Module):
             input_pos=input_pos,
             input_pos_maxp1=input_pos_maxp1,
         )
+        z_L = nn.Buffer(
+            torch.empty(self.config.n_embd, dtype=torch.float32),
+            persistent=True,
+        )
+        nn.init.trunc_normal_(z_L)
+        z_H = nn.Buffer(
+            torch.empty(self.config.n_embd, dtype=torch.float32),
+            persistent=True,
+        )
+        nn.init.trunc_normal_(z_H)
+
         for _H_step in range(self.config.H_cycles):
             for _L_step in range(self.config.L_cycles):
                 z_L = self._run_blocks(z_L, z_H + x, **rope_args)
