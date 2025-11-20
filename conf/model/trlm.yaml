@@ -1,6 +1,6 @@
 # @package _group_
 name: "trlm"
-n_layer: 2
+n_layer: 3
 l_cycles: 6
 h_cycles: 1
 n_head: 12
