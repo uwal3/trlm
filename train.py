@@ -81,7 +81,7 @@ def create_model(cfg: DictConfig):
         gptconf = GPTConfig(**model_args)  # type: ignore
         model = GPT(gptconf)
         model.to(cfg.environment.device)
-    elif cfg.model.name == "rlm":
+    elif cfg.model.name == "trlm":
         model_args = dict(
             n_layer=cfg.model.n_layer,
             n_head=cfg.model.n_head,
