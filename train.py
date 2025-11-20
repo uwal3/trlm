@@ -90,7 +90,7 @@ def create_model(cfg: DictConfig):
             bias=cfg.model.bias,
             vocab_size=tokenizer.vocab_size,
             H_cycles=cfg.model.h_cycles,
-            L_cycles=cfg.mode.l_cycles,
+            L_cycles=cfg.model.l_cycles,
             halt_max_steps=cfg.model.halt_max_steps,
         )
         trlmconf = TRLMConfig(**model_args)  # type: ignore
