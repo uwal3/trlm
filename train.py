@@ -68,6 +68,7 @@ def prepare_dataloaders(cfg: DictConfig):
 def create_model(cfg: DictConfig):
     tokenizer = AutoTokenizer.from_pretrained(cfg.data.tokenizer)
 
+    model = None
     if cfg.model.name == "gpt":
         model_args = dict(
             n_layer=cfg.model.n_layer,
@@ -96,6 +97,7 @@ def create_model(cfg: DictConfig):
         model = TRLM(trlmconf)
         model.to(cfg.environment.device)
 
+    assert model is not None, "unknown model type"
     model_with_loss = LossHead(model)
     return model_with_loss
 
@@ -220,7 +222,6 @@ def train(
                 wandb.log(
                     {
                         "train/loss": total_loss,
-                        "train/lm_loss": total_loss,
                         "lr": lr,
                     },
                     step=iter_num,
