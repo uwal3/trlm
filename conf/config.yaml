@@ -10,7 +10,7 @@ training:
   log_interval: 10
   eval_iters: 3
   always_save_checkpoint: True
-  max_iters: 300000
+  max_iters: 50000
   resume_from_checkpoint: null
 
 environment:
