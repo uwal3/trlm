@@ -180,6 +180,7 @@ def train(
                     "wandb_run_id": wandb.run.id if cfg.wandb.log else None,  # type: ignore
                 }
                 print(f"saving checkpoint to {cfg.training.out_dir}")
+                os.makedirs(os.path.join(get_original_cwd(), cfg.training.out_dir), exist_ok=True)
                 torch.save(
                     checkpoint,
                     os.path.join(
