@@ -1,10 +1,10 @@
 # @package _group_
 name: "trlm"
-n_layer: 3
+n_layer: 2
 l_cycles: 6
 h_cycles: 1
 n_head: 12
-n_embd: 768
+n_embd: 576
 dropout: 0.0
 bias: False
 halt_max_steps: 1
