@@ -8,9 +8,9 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 
 
-@hydra.main(version_base=None, config_path="../conf/data", config_name="wikitext.yaml")
+@hydra.main(version_base=None, config_path="../conf", config_name="config.yaml")
 def main(cfg: DictConfig):
-    cfg = cfg._group_
+    cfg = cfg.data
 
     output_dir = cfg.dir
     os.makedirs(output_dir, exist_ok=True)

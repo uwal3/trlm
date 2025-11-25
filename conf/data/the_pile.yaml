@@ -1,11 +1,9 @@
 # @package _group_
-name: "EleutherAI/the_pile_deduplicated"
+name: "JeanKaddour/minipile"
 config: "default"
-dir: "data/the_pile"
+dir: "data/pile"
 batch_size: 16
 gradient_accumulation_steps: 32
 block_size: 1024
 num_workers: 4
 tokenizer: "EleutherAI/gpt-neox-20b"
-num_documets: 300000
-validation_ration: 0.01
