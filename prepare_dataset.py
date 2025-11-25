@@ -10,19 +10,18 @@ from datasets import load_dataset
 
 @hydra.main(version_base=None, config_path="./conf", config_name="config")
 def main(cfg: DictConfig):
-    cfg = cfg.data
 
-    output_dir = cfg.dir
+    output_dir = cfg.data.dir
     os.makedirs(output_dir, exist_ok=True)
 
-    dataset = load_dataset(cfg.name, cfg.config, num_proc=cfg.num_workers)
+    dataset = load_dataset(cfg.data.name, cfg.data.config, num_proc=cfg.data.num_workers)
 
     splits = {
         "train": dataset["train"],  # type: ignore
         "val": dataset["validation"],  # type: ignore
     }
 
-    enc = AutoTokenizer.from_pretrained(cfg.tokenizer)
+    enc = AutoTokenizer.from_pretrained(cfg.data.tokenizer)
 
     def tokenize_function(examples):
         return enc(examples["text"], add_special_tokens=False)
@@ -31,13 +30,13 @@ def main(cfg: DictConfig):
         print(f"processing '{split_name}' split...")
 
         ds_split = ds_split.filter(  # type: ignore
-            lambda x: x["text"] and not x["text"].isspace(), num_proc=cfg.num_workers
+            lambda x: x["text"] and not x["text"].isspace(), num_proc=cfg.data.num_workers
         )
 
         tokenized_ds = ds_split.map(
             tokenize_function,
             batched=True,
-            num_proc=cfg.num_workers,
+            num_proc=cfg.data.num_workers,
             remove_columns=["text"],
         )
 
