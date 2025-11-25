@@ -8,7 +8,7 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 
 
-@hydra.main(version_base=None, config_path="../conf", config_name="config.yaml")
+@hydra.main(version_base=None, config_path="./conf", config_name="config")
 def main(cfg: DictConfig):
     cfg = cfg.data
 
