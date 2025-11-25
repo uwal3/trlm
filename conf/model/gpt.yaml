@@ -1,4 +1,3 @@
-# @package _group_
 name: "gpt"
 n_layer: 8
 n_head: 12

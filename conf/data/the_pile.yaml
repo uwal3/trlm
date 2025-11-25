@@ -1,4 +1,3 @@
-# @package _group_
 name: "JeanKaddour/minipile"
 config: "default"
 dir: "data/pile"

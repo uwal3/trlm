@@ -10,8 +10,7 @@ from datasets import load_dataset
 
 @hydra.main(version_base=None, config_path="./conf", config_name="config")
 def main(cfg: DictConfig):
-    print(OmegaConf.to_yaml(cfg))
-
+    
     output_dir = cfg.data.dir
     os.makedirs(output_dir, exist_ok=True)
 
